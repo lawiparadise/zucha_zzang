@@ -1,0 +1,539 @@
+// lcd : A포트, 블루투스: UDR0
+
+#include<avr/io.h>
+#include<util/delay.h>
+#include "c_lcd2007_WinAVR.h"
+#include <avr/interrupt.h>
+#include <stdlib.h>
+
+#define SWITCH (PING&0x0F)
+#define MODE (PINC&0x1F)
+#define BREAK (PINC&0x10)
+#define ACCEL (PINC&0x20)
+
+
+#define PA PORTA
+#define PB PORTB
+#define PD PORTD
+#define PE PORTF
+#define PF PORTE
+
+#define MENU 0
+#define DEALY 30
+
+volatile signed int en_cnt=0;
+
+//--*****************************************************************
+// ADC 
+//--*****************************************************************
+volatile int n = 0;
+volatile int handlecnt=0;
+volatile int handle_trans = 0;
+volatile unsigned char sensor[8] = { 0, };
+volatile unsigned char hand_array[256] = {0,};
+
+volatile int cnt = 0;
+
+volatile unsigned char menu_position = 0;
+volatile unsigned char ke=0;
+volatile unsigned int count_num=0;
+
+//#define PD PORTC
+volatile int temp = 0;
+volatile unsigned char tempCh = '0';
+
+
+//mode control
+volatile int rcnt = 0;
+volatile int ncnt = 0;
+volatile int dcnt = 0;
+volatile int pcnt = 0;
+volatile int lhcnt = 0;
+volatile int rhcnt = 0;
+
+//ToRasp
+volatile int PNum = 0;
+
+//handle 
+volatile int cntK = 90;
+volatile int clk = 0;
+volatile int dt = 0;
+volatile int lastDialPos = 0;
+volatile int dialPos = 0;
+
+//proto
+void TX0_CH(char c);
+void TransToRasp(int num);
+void menu();
+
+
+void initPORT(){
+	DDRA=0xFF;	//lcd
+	DDRB=0XFF;  //trans handle to Rasp
+	DDRD=0XFF;  //trans gear to Rasp
+	DDRC=0XFF;  //get gear
+	
+	DDRF=0X00;  //rotury encoder
+	DDRE=0X00;	//포트E는 RX TX 연결 or rotury encoder
+	DDRG=0X00;
+
+	PORTA=0X00;
+	PORTB=0X00;
+	PORTC=0X00;
+	PORTD=0X00;
+	PORTE=0X00;
+	PORTF=0X00;
+	PORTG=0X00;
+
+}
+
+void initLCD(){
+	lcd_init();
+	lcd_clear();
+	lcd_home();
+}
+
+void initBlueSet() {
+	UCSR0A = 0x00;
+
+//	UCSR0B=0x18; //00011000 수신과 송신 둘 다 씀
+//	UCSR0B=0x10; //00010000 수신만 씀
+	UCSR0B = 0x98; //10011000 //7번째 비트를 1로 하면 수신완료 인터럽트를 개별적으로 허용 해 줌 
+
+	UCSR0C = 0x06; // 00000110  011로 8bit ,6번 비트가 0 이므로 비동기 모드.
+//	UCSR0C = ~     // 01000110  6번 비트가 1이므로 동기 모드
+
+	UBRR0H = 0;
+//	UBRR0L = 0x08;  //16Mhz에서 보드레이트 속도 115200bps
+    UBRR0L=0X67; //16Mhz에서 보드레이트 속도 9600	
+
+
+
+}
+
+void initTimerSet() {
+//	TCCR0=0x0C;  
+//	OCR0=249;    
+//	TIMSK=2; //16000000/  64/(1+249)= 1000Hz=1ms
+//
+
+/////////////////////////////////////////////////////
+
+	/* 타이머카운터는0,1,2,3이 있다. 0,2는 8비트 1,3은 16비트 근데, 16비트는 다시 ABC로 나뉨. 그래서 0,1A,1B,1C,2,3A,3B,3C로 총8개이다.
+	 //
+	 */
+
+	/*//타이머 카운트 인터럽트마스크  타이머,카운터를 인터럽트 발생의 소스로 사용할지 말지 결정
+	 TIMSK |= (1<<OCIE1A) | (1<<TOIE0);  //TOIE0 : 타이머0오버플로우인터럽트인에이블
+	 //  TIMSK |= (1<<OCIE1A);  
+	 //팀스크는 타이머의 인터럽트를 사용 가능하게 해준다. TOIE0를 1로 해준다>타이머0의 인터럽트를 사용 가능하게 해준다. 
+	 //OCIE1A와  얘네가 켜지면 모터가 돌아
+
+	 //익스텐드 타이머인터럽트타이머마스크
+	 ETIMSK=(1<<TOIE3)|(1<<OCIE3A);  //Timer 3 OutputCompare Interrupt Enable TOIE3이 타이머0 시 필요
+	 //	ETIMSK=(1<<OCIE3A);
+	 // 에팀스크 둘 중 뭐써야하지?
+	 */
+
+////////////////////////////////////////
+//TCCR0 > 7:FOC0 6:WGM00 5:COM01 4:COM00 3:WGM01 2:CS02 1:CS01 0:CS00
+	TCCR0 = (1 << CS02); //타이머0를 컨트롤해줌 CS02에 1을 넣는다>64주기로 바꿔준다. 즉 16M를 64로 나누어 1초에 250,000번 발생
+	TCCR1B = (1 << WGM12) | (1 << CS11); // WGM12에 1을 넣는다>CTC모드선택,CS11에 1을 넣는다>8분주
+	TCCR3B = (1 << WGM32) | (1 << CS31); // WGM32에 1을 넣는다>CTC모드선택,CS31에 1을 넣는다>8분주
+
+	ETIMSK = 0x00;
+	TIMSK = 0x00;
+	TCNT0 = 0x06;  //250=256-6
+
+//	sei(); //setting end inturrupt 셋팅이 끝나고 인터럽트 적용해준다.
+
+}
+
+void init_ADCSet() {
+	ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADSC) | (0x07);  //128
+	ADMUX = (1 << ADLAR) | (0x00);
+
+}
+
+int GetKey(void)
+{
+	char key=0;
+	key = SWITCH;
+	
+	while((SWITCH)!=0);
+	
+	if((key)==0x01)
+		key = 1;
+	if((key)==0x02)
+		key = 2;
+	if((key)==0x04)
+		key = 3;
+	if((key)==0x08)
+		key = 4;
+	
+	return key;
+}
+
+int getMode(void)
+{
+	char key=0;
+	key = MODE;
+	
+	//while((MODE)!=0);
+	
+	if((key)==0x01)
+		key = 1;
+	if((key)==0x02)
+		key = 2;
+	if((key)==0x04)
+		key = 3;
+	if((key)==0x08)
+		key = 4;
+	
+	return key;
+}
+void selectMode(int mode){
+
+
+
+	if(mode==1){
+		if(rcnt==0){
+			lcd_gotoxy(5,0);
+			lcd_puts("R");
+			//TX0_CH(1);
+			TransToRasp(1);
+			rcnt = 1;
+			ncnt = 0;
+			dcnt = 0;
+			pcnt = 0;
+		}
+	} else if(mode==2){
+		if(ncnt==0){
+			lcd_gotoxy(5,0);
+			lcd_puts("N");
+			//TX0_CH(2);
+			TransToRasp(2);
+			rcnt = 0;
+			ncnt = 1;
+			dcnt = 0;
+			pcnt = 0;
+		}
+	} else if(mode==3){
+		if(dcnt==0){
+			lcd_gotoxy(5,0);
+			lcd_puts("D");
+			//TX0_CH(3);
+			TransToRasp(4);
+			rcnt = 0;
+			ncnt = 0;
+			dcnt = 1;
+			pcnt = 0;
+		}
+	} else if(mode==4){
+		if(pcnt == 0){
+			lcd_gotoxy(5,0);
+			lcd_puts("P");
+			//TX0_CH(4);
+			TransToRasp(8);
+			rcnt = 0;
+			ncnt = 0;
+			dcnt = 0;
+			pcnt = 1;
+		}
+	}
+
+  
+
+}
+
+void TX0_CH(char c) {
+	while (!(UCSR0A & 0x20));
+	UDR0 = c;
+} // 송신 1바이트
+
+void TX0_STR(char *s) {
+	while (*s)
+		TX0_CH(*s++);
+}       // 송신 문자열
+
+ISR( USART0_RX_vect) {
+	tempCh = UDR0;
+	temp = (int) tempCh;
+}
+
+
+//여기 부터 손봐야함 어떻게 adc값을 잘 측정해서 전달할것인가? -------------------------------------------------
+ISR( ADC_vect) {
+
+	if((handle_trans == handlecnt+7) || (handle_trans == handlecnt-7) || (handle_trans == handlecnt)) cnt=1;
+	else{
+		cnt = 0;
+		handle_trans = handlecnt;
+	}
+
+	handlecnt = ADCH;
+	handlecnt = ((handlecnt-100)*7)+100;
+	if(handlecnt<50) handlecnt=30;
+	else if(handlecnt>150) handlecnt = 150;
+
+//	if(handle_trans != 0 && cnt==0 ) TX0_CH(handle_trans);
+	if(handle_trans != 0 && cnt==0 ) PB = handle_trans;
+
+
+/*
+	handletrans = handlecnt;
+	
+	handlecnt = ADCH;
+	handlecnt = ((handlecnt-100)*2)+100;
+	if(handlecnt<50) handlecnt=50;
+	else if(handlecnt>150) handlecnt = 150;
+	
+
+	if(handletrans!=handlecnt){
+		
+		TX0_CH(handletrans);
+	}
+*/
+	
+/*	
+	hand_array[n] = ADCH;
+
+	n++;
+	if(n==256) n = 0;
+
+	for(cnt=0;cnt<256;cnt++){
+		if(hand_array[cnt]<hand_array[255]-2){
+			handlecnt = 1;
+		} else if(hand_array[cnt]>hand_array[255]+2){
+			handlecnt = 2;
+		}
+	}
+*/
+/*	sensor[n] = ADCH;
+	n++;
+	if (n == 8)
+		n = 0;
+
+	ADMUX = (1 << ADLAR) | n; */
+	ADCSRA |= (1 << ADSC);
+}
+
+
+ISR( TIMER0_OVF_vect) {
+
+	menu();
+}
+
+/*
+void menu(){
+	int ran=0;
+
+	while(menu_position==MENU){
+
+		ke=GetKey();
+
+		if(ke==1){
+			count_num++;
+			if(count_num>9) count_num=0;
+			count(count_num);
+
+
+		}
+		
+		if(ke==2){
+			tonado();
+			ran=(rand()%10)+1;
+			if(ran>9)ran=9;
+			count_num=ran;
+			count(count_num);
+		}
+		if(ke==3){
+			TX0_CHOICE(count_num);
+
+		}
+
+		if(ke==4){
+			TX0_CHOICE2(count_num);
+
+
+		}
+		
+		
+	}
+
+
+}
+*/
+
+void TransToRasp(int num){
+	
+	if(num==1 || num==2 || num==4 || num==8){
+		PNum &= 128+64+32+16;
+		PNum += num;
+	} else if(num==16 || num==32){
+		PNum &= 128+64+8+4+2+1;
+		PNum += num;	
+	} else if(num==64 || num==128){
+		PNum &= 32+16+8+4+2+1;
+		PNum += num;
+	}
+	PD = PNum;
+	
+}
+int encoder(){
+	clk = PINE&0x01;
+	dt = PINF&0x01;
+
+	if(clk == 0x01){
+		if(dt == 0x01){
+			dialPos = 3;
+		} else if(dt == 0){
+			dialPos = 2;
+		}
+	}
+	else if(clk == 0){
+		if(dt == 0x01){
+			dialPos = 1;
+		} else if(dt ==0){
+			dialPos = 0;
+		}
+	}
+
+	if(dialPos == 3 && lastDialPos == 2){
+		PORTF=0b00000010; 
+		cntK++;
+	}
+	else if(dialPos == 3 && lastDialPos == 1){
+		PORTF=0b00000001; 
+		cntK--;
+	}
+	lastDialPos = dialPos;
+
+	return cntK;
+
+}
+
+void menu(){
+// 	if((handle_trans == handlecnt+2) || (handle_trans == handlecnt-2) || (handle_trans == handlecnt)) cnt=1;
+	if((handle_trans == handlecnt)) cnt=1;
+	else{
+		cnt = 0;
+		handle_trans = handlecnt;
+	}
+
+	handlecnt = ((encoder()-90)*4)+90;
+
+
+
+   	if(handlecnt <=30) handlecnt = 30;
+	else if(handlecnt >= 150) handlecnt = 150;
+
+	if(handle_trans != 0 && cnt==0 ) PB = handle_trans;
+
+}
+
+int main()
+{
+
+
+
+	initPORT();
+	//포트 설정이 initLCD보다 위로 가야한다.
+	initLCD();
+	initBlueSet();
+	initTimerSet();
+//	init_ADCSet();
+
+TIMSK = (1 << TOIE0); 
+
+	sei();
+
+
+//	show();
+
+ 	
+// 	int k=0;
+	int mode=0;
+
+	int bcnt = 0;
+	int acnt = 0;
+
+	while(1){
+
+		lcd_gotoxy(0,0);
+		lcd_puts("mode:");
+		lcd_gotoxy(9,1);
+		lcd_puts("break:");
+		lcd_gotoxy(9,0);
+		lcd_puts("accel:");
+
+/*
+		k=GetKey();
+
+		if(k==2){
+			lcd_gotoxy(0,1);
+			lcd_puts("hi");
+			TX0_CH(49);
+		}
+*/
+		if(BREAK==0x10){
+			if(bcnt ==1){
+				lcd_gotoxy(15,1);
+				lcd_puts("o");
+				//TX0_CH(5);
+				TransToRasp(16);
+				bcnt = 0;
+			
+			}
+		} else{
+			if(bcnt == 0){
+				lcd_gotoxy(15,1);
+				lcd_puts("x");
+				//TX0_CH(6);
+				TransToRasp(32);
+				bcnt = 1;
+			}
+		
+		}
+		if(ACCEL==0x20){
+			if(acnt == 1){
+				lcd_gotoxy(15,0);
+				lcd_puts("o");
+				//TX0_CH(7);
+				TransToRasp(64);
+				acnt = 0;
+			}
+		} else{
+			if(acnt == 0){
+				lcd_gotoxy(15,0);
+				lcd_puts("x");
+				//TX0_CH(8);
+				TransToRasp(128);
+				acnt = 1;
+			}
+		}
+/*
+		if(handlecnt==1){
+			TX0_CH('Q');
+			handlecnt=0;
+		} else if(handlecnt == 2){
+			TX0_CH('W');
+			handlecnt=0;
+		}
+*/
+		mode=getMode();
+		selectMode(mode);
+		
+		lcd_gotoxy(0,1);
+	//	lcd_putn3(handle_trans);
+		lcd_puts("hand");
+		lcd_gotoxy(5,1);
+	//	lcd_putn3(hand_array[0]);
+		lcd_putn3(handle_trans);
+
+		
+	//	menu();
+	}
+	
+		
+} 

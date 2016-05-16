@@ -1,0 +1,987 @@
+//
+//  main.c
+//  z-wave-test
+//
+//  Created by Alex Skalozub on 1/6/12.
+//  Copyright (c) 2012 pieceofsummer@gmail.com. All rights reserved.
+//
+
+#include <stdio.h>
+#include <ZWayLib.h>
+#include <ZLogging.h>
+#include <errno.h>
+#include <wiringPi.h>
+
+#define B1 29
+#define B3 28
+#define B5 27
+#define B7 26
+
+#define B2 22
+#define B4 23
+#define B6 24
+#define B8 25
+
+#define Bit0 21 //GPIO_
+#define Bit1 6
+#define Bit2 3
+#define Bit3 5
+#define Bit4 2
+#define Bit5 4
+#define Bit6 0
+#define Bit7 1
+
+volatile int rCnt = 0;
+volatile int nCnt = 0;
+volatile int dCnt = 0;
+volatile int pCnt = 0;
+volatile int aCnt = 0;
+volatile int naCnt = 0;
+volatile int bCnt = 0;
+volatile int nbCnt = 0;
+
+volatile int cnt;
+volatile int ccnt;
+volatile int cnt0;
+volatile int cnt1;
+volatile int cnt2;
+volatile int cnt3;
+volatile int cnt4;
+volatile int cnt5;
+volatile int cnt6;
+volatile int cnt7;
+
+int do_work(ZWay zway);
+
+void pin_init() {
+	if (wiringPiSetup() == -1) {
+		printf(" XXXXXXXXXXXXXXXXXxx");
+
+	}
+	pinMode(B1, INPUT);
+	pinMode(B2, INPUT);
+	pinMode(B3, INPUT);
+	pinMode(B4, INPUT);
+
+	pinMode(B5, INPUT);
+	pinMode(B6, INPUT);
+	pinMode(B7, INPUT);
+	pinMode(B8, INPUT);
+	pinMode(21, OUTPUT);
+
+	pinMode(Bit0, INPUT);
+	pinMode(Bit1, INPUT);
+	pinMode(Bit2, INPUT);
+	pinMode(Bit3, INPUT);
+	pinMode(Bit4, INPUT);
+	pinMode(Bit5, INPUT);
+	pinMode(Bit6, INPUT);
+	pinMode(Bit7, INPUT);
+}
+
+void test_memory(ZWay zway) {
+	ZWError r;
+
+	ZWBYTE buff1[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+	r = zway_fc_memory_put_byte(zway, 0x1234, 0x42, NULL, NULL, NULL );
+	r = zway_fc_memory_get_byte(zway, 0x1234, NULL, NULL, NULL );
+	r = zway_fc_memory_put_buffer(zway, 0x2345, 16, buff1, NULL, NULL, NULL );
+	r = zway_fc_memory_get_buffer(zway, 0x2345, 16, NULL, NULL, NULL );
+}
+
+void test_save(ZWay zway) {
+	ZWError r;
+
+	ZWBYTE *data = NULL;
+	size_t length = 0;
+	r = zway_controller_config_save(zway, &data, &length);
+	if (r == NoError) {
+		printf("Successfully saved! (size = %lu)\n",
+				(unsigned long int) length);
+
+		char path[MAX_PATH];
+		strcpy(path, "/tmp/config.tgz");
+
+		FILE *t = fopen(path, "wb");
+		if (t != NULL ) {
+			fwrite(data, 1, length, t);
+			fclose(t);
+
+			printf("Config written to %s\n", path);
+		} else {
+			printf("Config write error: %s\n", strerror(errno));
+		}
+
+		free(data);
+	} else {
+		printf("Error saving configuration! (err = %s)\n", zstrerror(r));
+	}
+}
+
+void test_restore(ZWay zway) {
+	char path[MAX_PATH];
+	strcpy(path, "/tmp/config.tgz");
+
+	printf("Reading config from %s\n", path);
+
+	struct stat finfo;
+	int tr = stat(path, &finfo);
+	if (tr != 0) {
+		if (errno == ENOENT) {
+			printf("Config not found. Save one first!\n");
+		} else {
+			printf("Config read error: %s\n", strerror(errno));
+		}
+		return;
+	}
+
+	size_t length = finfo.st_size;
+	ZWBYTE *data = (ZWBYTE*) malloc(length);
+	if (data == NULL ) {
+		printf("Failed to alloc %zu bytes!\n", length);
+		return;
+	}
+
+	FILE *t = fopen(path, "rb");
+	if (t != NULL ) {
+		fread(data, 1, length, t);
+		fclose(t);
+	} else {
+		free(data);
+		printf("Config read error: %s\n", strerror(errno));
+		return;
+	}
+
+	ZWError r = zway_controller_config_restore(zway, data, length, FALSE);
+	if (r == NoError) {
+		printf("Configuration successfully restored\n");
+	} else {
+		printf("Error restoring configuration! (err = %s)\n", zstrerror(r));
+	}
+
+	free(data);
+}
+
+void dump_data(const ZWay zway, ZDataHolder data) {
+	char *path = zdata_get_path(data);
+	ZWDataType type;
+	zdata_get_type(data, &type);
+
+	ZWBOOL bool_val;
+	int int_val;
+	float float_val;
+	ZWCSTR str_val;
+	const ZWBYTE *binary;
+	const int *int_arr;
+	const float *float_arr;
+	const ZWCSTR *str_arr;
+	size_t len, i;
+
+	switch (type) {
+	case Empty:
+		zway_log(zway, Debug, ZSTR("DATA %s = Empty"), path);
+		break;
+	case Boolean:
+		zdata_get_boolean(data, &bool_val);
+		if (bool_val)
+			zway_log(zway, Debug, ZSTR("DATA %s = True"), path);
+		else
+			zway_log(zway, Debug, ZSTR("DATA %s = False"), path);
+		break;
+	case Integer:
+		zdata_get_integer(data, &int_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = %d (0x%08x)"),
+				path, int_val, int_val);
+		break;
+	case Float:
+		zdata_get_float(data, &float_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = %f"), path, float_val);
+		break;
+	case String:
+		zdata_get_string(data, &str_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = \"%s\""), path, str_val);
+		break;
+	case Binary:
+		zdata_get_binary(data, &binary, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = byte[%d]"), path, len);
+		zway_dump(zway, Debug, ZSTR("  "), len, binary);
+		break;
+	case ArrayOfInteger:
+		zdata_get_integer_array(data, &int_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = int[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] %d"), i, int_arr[i]);
+		break;
+	case ArrayOfFloat:
+		zdata_get_float_array(data, &float_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = float[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] %f"), i, float_arr[i]);
+		break;
+	case ArrayOfString:
+		zdata_get_string_array(data, &str_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = string[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] \"%s\""), i, str_arr[i]);
+		break;
+	}
+	free(path);
+
+	ZDataIterator child = zdata_first_child(data);
+	while (child != NULL ) {
+		path = zdata_get_path(child->data);
+		zway_log(zway, Debug, ZSTR("CHILD %s"), path);
+		free(path);
+		child = zdata_next_child(child);
+	}
+}
+int get_data(const ZWay zway, ZDataHolder data) {
+	char *path = zdata_get_path(data);
+	ZWDataType type;
+	zdata_get_type(data, &type);
+
+	ZWBOOL bool_val;
+	int int_val;
+	float float_val;
+	ZWCSTR str_val;
+	const ZWBYTE *binary;
+	const int *int_arr;
+	const float *float_arr;
+	const ZWCSTR *str_arr;
+	size_t len, i;
+
+	switch (type) {
+	case Empty:
+		zway_log(zway, Debug, ZSTR("DATA %s = Empty"), path);
+		break;
+	case Boolean:
+		zdata_get_boolean(data, &bool_val);
+		if (bool_val)
+			zway_log(zway, Debug, ZSTR("DATA %s = True"), path);
+		else
+			zway_log(zway, Debug, ZSTR("DATA %s = False"), path);
+		break;
+	case Integer:
+		zdata_get_integer(data, &int_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = %d (0x%08x)"),
+				path, int_val, int_val);
+		break;
+	case Float:
+		zdata_get_float(data, &float_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = %f"), path, float_val);
+		break;
+	case String:
+		zdata_get_string(data, &str_val);
+		zway_log(zway, Debug, ZSTR("DATA %s = \"%s\""), path, str_val);
+		break;
+	case Binary:
+		zdata_get_binary(data, &binary, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = byte[%d]"), path, len);
+		zway_dump(zway, Debug, ZSTR("  "), len, binary);
+		break;
+	case ArrayOfInteger:
+		zdata_get_integer_array(data, &int_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = int[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] %d"), i, int_arr[i]);
+		break;
+	case ArrayOfFloat:
+		zdata_get_float_array(data, &float_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = float[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] %f"), i, float_arr[i]);
+		break;
+	case ArrayOfString:
+		zdata_get_string_array(data, &str_arr, &len);
+		zway_log(zway, Debug, ZSTR("DATA %s = string[%d]"), path, len);
+		for (i = 0; i < len; i++)
+			zway_log(zway, Debug, ZSTR("  [%02d] \"%s\""), i, str_arr[i]);
+		break;
+	}
+	free(path);
+
+	ZDataIterator child = zdata_first_child(data);
+	while (child != NULL ) {
+		path = zdata_get_path(child->data);
+		zway_log(zway, Debug, ZSTR("CHILD %s"), path);
+		free(path);
+		child = zdata_next_child(child);
+	}
+	return int_val;
+}
+
+void print_basic_holder(const ZWay zway, ZWDataChangeType type,
+		ZDataHolder data) {
+	int int_val;
+
+	zdata_get_integer(data, &int_val);
+	zway_log(zway, Debug, ZSTR("Basic set value = %i"), int_val);
+}
+
+void print_D_I_CC_event(const ZWay zway, ZWDeviceChangeType type,
+		ZWBYTE node_id, ZWBYTE instance_id, ZWBYTE command_id, void *arg) {
+	switch (type) {
+	case DeviceAdded:
+		zway_log(zway, Information, ZSTR("New device added: %i"), node_id);
+		break;
+
+	case DeviceRemoved:
+		zway_log(zway, Information, ZSTR("Device removed: %i"), node_id);
+		break;
+
+	case InstanceAdded:
+		zway_log(zway, Information, ZSTR("New instance added to device %i: %i"),
+				node_id, instance_id);
+		break;
+
+	case InstanceRemoved:
+		zway_log(zway, Information, ZSTR("Instance removed from device %i: %i"),
+				node_id, instance_id);
+		break;
+
+	case CommandAdded:
+		zway_log(zway, Information,
+				ZSTR("New Command Class added to device %i:%i: %i"),
+				node_id, instance_id, command_id);
+		break;
+
+	case CommandRemoved:
+		zway_log(zway, Information,
+				ZSTR("Command Class removed from device %i:%i: %i"),
+				node_id, instance_id, command_id);
+		break;
+	}
+}
+
+void print_help(void) {
+	printf("=== Test commands ===\n"
+			"d r <path>\n"
+			"d d <dev> <path>\n"
+			"d i <dev> <inst> <path>\n"
+			"d c <dev> <inst> <ccId> <path>\n"
+			"m Memory test\n"
+			"s <dev> <inst> <ccId> (s=set|g=get) <val>\n"
+			"a Start AddNodeToNetwork\n"
+			"A Stop AddNodeToNetwork\n"
+			"e Start RemoveNodeFromNetwork\n"
+			"E Stop RemoveNodeFromNetwork\n"
+			"S save configuration to tar file\n"
+			"R restore configuration from tar file\n"
+			"W restore stick from config\n"
+			"x exit\n");
+}
+
+int getMode() {
+	int key = 0;
+
+	if (digitalRead(B1) == HIGH) {
+		key = 1;
+	} else if (digitalRead(B2) == HIGH) {
+		key = 2;
+	} else if (digitalRead(B3) == HIGH) {
+		key = 3;
+	} else if (digitalRead(B4) == HIGH) {
+		key = 4;
+	}
+
+	/*
+	 zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+	 zdata_release_lock(ZDataRoot(zway));if (digitalRead(B5) == HIGH) {
+	 key = 5;
+	 } else if (digitalRead(B6) == HIGH) {
+	 key = 6;
+	 } else if (digitalRead(B7) == HIGH) {
+	 key = 7;
+	 } else if (digitalRead(B8) == HIGH) {
+	 key = 8;
+	 }
+	 */
+
+	return key;
+}
+
+void selectMode(int k, ZWay zway) {
+	ZWBYTE dev = 2, inst = 0, cc = 32, cc_val = 0;
+
+	if (k == 1) {
+		if (rCnt == 0) {
+			digitalWrite(21, HIGH);
+
+			cc_val = 1;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+
+			//printf("*** test : %hhd \n", cc_val);
+
+			zdata_release_lock(ZDataRoot(zway));
+
+			rCnt = 1;
+			nCnt = 0;
+			dCnt = 0;
+			pCnt = 0;
+
+			printf("\n\n value : 1 \n\n");
+		}
+
+	} else if (k == 2) {
+		if (nCnt == 0) {
+			digitalWrite(21, LOW);
+
+			cc_val = 2;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			rCnt = 0;
+			nCnt = 1;
+			dCnt = 0;
+			pCnt = 0;
+
+			printf("\n\n value : 2 \n\n");
+
+		}
+
+	} else if (k == 3) {
+		if (dCnt == 0) {
+			digitalWrite(21, LOW);
+
+			cc_val = 3;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			rCnt = 0;
+			nCnt = 0;
+			dCnt = 1;
+			pCnt = 0;
+
+			printf("\n\n value : 3 \n\n");
+
+		}
+
+	} else if (k == 4) {
+		if (pCnt == 0) {
+			digitalWrite(21, LOW);
+
+			cc_val = 4;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			rCnt = 0;
+			nCnt = 0;
+			dCnt = 0;
+			pCnt = 1;
+
+			printf("\n\n value : 4 \n\n");
+
+		}
+	}
+
+}
+
+void selectMode2(int k, ZWay zway) {
+	ZWBYTE dev = 2, inst = 0, cc = 32, cc_val = 0;
+
+	if (k == 5) {
+		if (bCnt == 0) {
+			cc_val = 5;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			bCnt = 1;
+			nbCnt = 0;
+
+			printf("\n\n value : 5 \n\n");
+		}
+
+	} else if (k == 6) {
+		if (nbCnt == 0) {
+
+			cc_val = 6;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			bCnt = 0;
+			nbCnt = 1;
+
+			printf("\n\n value : 6 \n\n");
+
+		}
+
+	}
+
+	if (k == 7) {
+		if (aCnt == 0) {
+
+			cc_val = 7;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			aCnt = 1;
+			naCnt = 0;
+
+			printf("\n\n value : 7 \n\n");
+
+		}
+
+	} else if (k == 8) {
+		if (naCnt == 0) {
+
+			cc_val = 8;
+
+			zdata_acquire_lock(ZDataRoot(zway));
+			zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+			zdata_release_lock(ZDataRoot(zway));
+
+			aCnt = 0;
+			naCnt = 1;
+
+			printf("\n\n value : 8 \n\n");
+
+		}
+	}
+
+}
+
+void mode3(ZWay zway, int cnt) {
+
+	ZWBYTE dev = 2, inst = 0, cc = 32, cc_val = 0;
+	cc_val = cnt;
+
+	zdata_acquire_lock(ZDataRoot(zway));
+	zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL, NULL );
+	zdata_release_lock(ZDataRoot(zway));
+
+	printf("\n\n value : %d \n\n", cnt);
+
+}
+
+int do_work2(ZWay zway) {
+	char cmd, cc_cmd, holder_root;
+	ZWBYTE dev, inst, cc, cc_val, nconv;
+	char data_path[256];
+	char cmd_buffer[256];
+
+	ZWBOOL was_idle = FALSE;
+
+	ZWBOOL basic_level_attached = FALSE;
+
+	int skip = 0;
+	int running = TRUE;
+	int mode = 0;
+
+	while (running) {
+
+		if (!zway_is_running(zway)) {
+
+			running = FALSE;
+			break;
+		}
+
+		if (!zway_is_idle(zway)) {
+			sleep_ms(10);
+			continue;
+		}
+
+		if (digitalRead(B5) == HIGH){
+			selectMode2(5, zway);
+		} else {
+			selectMode2(6, zway);
+		}
+
+		if (digitalRead(B7) == HIGH) {
+			selectMode2(7, zway);
+		} else {
+			selectMode2(8, zway);
+		}
+
+		if (digitalRead(Bit7) == 0) {
+			cnt7 = 0;
+		} else if (digitalRead(Bit7) == 1) {
+			cnt7 = 1;
+		}
+
+		if (digitalRead(Bit6) == 0) {
+			cnt6 = 0;
+		} else if (digitalRead(Bit6) == 1) {
+			cnt6 = 2;
+		}
+
+		if (digitalRead(Bit5) == 0) {
+			cnt5 = 0;
+		} else if (digitalRead(Bit5) == 1) {
+			cnt5 = 4;
+		}
+
+		if (digitalRead(Bit4) == 0) {
+			cnt4 = 0;
+		} else if (digitalRead(Bit4) == 1) {
+			cnt4 = 8;
+		}
+
+		if (digitalRead(Bit3) == 0) {
+			cnt3 = 0;
+		} else if (digitalRead(Bit3) == 1) {
+			cnt3 = 16;
+		}
+
+		if (digitalRead(Bit2) == 0) {
+			cnt2 = 0;
+		} else if (digitalRead(Bit2) == 1) {
+			cnt2 = 32;
+		}
+
+		if (digitalRead(Bit1) == 0) {
+			cnt1 = 0;
+		} else if (digitalRead(Bit1) == 1) {
+			cnt1 = 64;
+		}
+
+		if (digitalRead(Bit0) == 0) {
+			cnt0 = 0;
+		} else if (digitalRead(Bit0) == 1) {
+			cnt0 = 128;
+		}
+
+		cnt = cnt0 + cnt1 + cnt2 + cnt3 + cnt4 + cnt5 + cnt6 + cnt7;
+
+		if (cnt != ccnt)
+			mode3(zway, cnt);
+		ccnt = cnt;
+
+		mode = getMode();
+		selectMode(mode, zway);
+
+	}
+
+}
+
+int do_work(ZWay zway) {
+	print_help();
+
+	char cmd, cc_cmd, holder_root;
+	ZWBYTE dev, inst, cc, cc_val, nconv;
+	char data_path[256];
+	char cmd_buffer[256];
+
+	ZWBOOL was_idle = FALSE;
+
+	ZWBOOL basic_level_attached = FALSE;
+
+	int skip = 0;
+	int running = TRUE;
+
+	//pinMode(4,OUTPUT);
+
+	while (running) {
+		printf("*******run \n");
+		if (digitalRead(B1) == HIGH) {
+			printf("*******hi");
+			digitalWrite(21, HIGH);
+		} else {
+			digitalWrite(21, LOW);
+		}
+		/*
+		 zdata_acquire_lock(ZDataRoot(zway));
+		 get_data(zway, zway_find_device_instance_data(zway, '2', '0', 'level'));
+		 zdata_release_lock(ZDataRoot(zway));
+		 */
+
+		if (!zway_is_running(zway)) {
+
+			running = FALSE;
+			break;
+		}
+
+		if (!zway_is_idle(zway)) {
+			sleep_ms(10);
+			continue;
+		}
+
+		skip = 0;
+
+		if (!basic_level_attached) {
+			ZDataHolder basic_level_holder;
+			zdata_acquire_lock(ZDataRoot(zway));
+			basic_level_holder = zway_find_device_instance_cc_data(zway, 8, 0,
+					0x26, "mylevel");
+			if (basic_level_holder) {
+				basic_level_attached = (zdata_add_callback(basic_level_holder,
+						(ZDataChangeCallback) print_basic_holder, FALSE, NULL )
+						== NoError);
+				if (basic_level_attached)
+					zway_log(zway, Debug,
+							ZSTR( "Basic.data.mylevel holder handler attached to device 8 instance 0"));
+			}
+			zdata_release_lock(ZDataRoot(zway));
+		}
+
+		printf("> ");
+		fgets(cmd_buffer, 255, stdin);
+		was_idle = FALSE;
+
+		nconv = sscanf(cmd_buffer, "%c %*s", &cmd);
+		if (nconv > 0) {
+			switch (cmd) {
+			case 'h':
+				print_help();
+				break;
+
+			case 'd':
+				nconv = sscanf(cmd_buffer, "%c %c", &cmd, &holder_root);
+				if (nconv > 1) {
+					switch (holder_root) {
+					case 'r':
+						nconv = sscanf(cmd_buffer, "%c %c %s", &cmd,
+								&holder_root, data_path);
+						if (nconv >= 2) {
+							if (nconv == 2) {
+								data_path[0] = '.';
+								data_path[1] = '\0';
+							}
+							zdata_acquire_lock(ZDataRoot(zway));
+							dump_data(zway,
+									zway_find_controller_data(zway, data_path));
+							zdata_release_lock(ZDataRoot(zway));
+						}
+						break;
+
+					case 'd':
+						nconv = sscanf(cmd_buffer, "%c %c %hhd %s", &cmd,
+								&holder_root, &dev, data_path);
+						if (nconv >= 3) {
+							if (nconv == 3) {
+								data_path[0] = '.';
+								data_path[1] = '\0';
+							}
+							zdata_acquire_lock(ZDataRoot(zway));
+							dump_data(zway,
+									zway_find_device_data(zway, dev,
+											data_path));
+							zdata_release_lock(ZDataRoot(zway));
+						}
+						break;
+					case 'i':
+						nconv = sscanf(cmd_buffer, "%c %c %hhd %hhd %s", &cmd,
+								&holder_root, &dev, &inst, data_path);
+						if (nconv >= 4) {
+							if (nconv == 4) {
+								data_path[0] = '.';
+								data_path[1] = '\0';
+							}
+							zdata_acquire_lock(ZDataRoot(zway));
+							dump_data(zway,
+									zway_find_device_instance_data(zway, dev,
+											inst, data_path));
+							zdata_release_lock(ZDataRoot(zway));
+						}
+						break;
+					case 'c':
+						nconv = sscanf(cmd_buffer, "%c %c %hhd %hhd %hhd %s",
+								&cmd, &holder_root, &dev, &inst, &cc,
+								data_path);
+						if (nconv >= 5) {
+							if (nconv == 5) {
+								data_path[0] = '.';
+								data_path[1] = '\0';
+							}
+							zdata_acquire_lock(ZDataRoot(zway));
+							dump_data(zway,
+									zway_find_device_instance_cc_data(zway, dev,
+											inst, cc, data_path));
+							zdata_release_lock(ZDataRoot(zway));
+						}
+						break;
+					}
+				}
+				break;
+
+			case 's':
+				nconv = sscanf(cmd_buffer, "%c %hhd %hhd %hhd %c %hhd", &cmd,
+						&dev, &inst, &cc, &cc_cmd, &cc_val);
+
+				if (nconv == 6 && cmd == 's' && cc == 0x20 && cc_cmd == 's') {
+					zdata_acquire_lock(ZDataRoot(zway));
+					zway_cc_basic_set(zway, dev, inst, cc_val, NULL, NULL,
+							NULL );
+
+					printf("*** test : %hhd \n", cc_val);
+
+					zdata_release_lock(ZDataRoot(zway));
+				} else if (nconv == 5 && cmd == 's' && cc == 0x20
+						&& cc_cmd == 'g') {
+					zdata_acquire_lock(ZDataRoot(zway));
+					zway_cc_basic_get(zway, dev, inst, NULL, NULL, NULL );
+
+					printf("*** test - dev : %hhd \n", dev);
+					printf("*** test - inst : %hhd \n", inst);
+
+					zdata_release_lock(ZDataRoot(zway));
+				}
+				break;
+
+			case 'n':
+				nconv = sscanf(cmd_buffer, "%c %hhd", &cmd, &dev);
+
+				if (nconv == 2)
+					zway_fc_request_node_information(zway, dev, NULL, NULL,
+							NULL );
+				break;
+
+			case 'm':
+				test_memory(zway);
+				break;
+
+			case 'a':
+				zway_fc_add_node_to_network(zway, TRUE, TRUE, NULL, NULL,
+						NULL );
+				break;
+
+			case 'e':
+				zway_fc_remove_node_from_network(zway, TRUE, TRUE, NULL, NULL,
+						NULL );
+				break;
+
+			case 'x':
+				running = FALSE;
+				break;
+
+			case 'S':
+				test_save(zway);
+				break;
+
+			case 'R':
+				test_restore(zway);
+				break;
+
+			case 'l':
+				nconv = sscanf(cmd_buffer, "%c %hhd %hhd", &cmd, &dev, &inst);
+				switch (nconv) {
+				case 1: {
+					ZWDevicesList list = zway_devices_list(zway);
+					if (list != NULL ) {
+						int i = 0;
+						printf("Devices list: ");
+						while (list[i]) {
+							printf("%i ", list[i]);
+							i++;
+						}
+						zway_devices_list_free(list);
+						printf("\n");
+					} else
+						printf("Error happened requesting devices list\n");
+				}
+					break;
+
+				case 2: {
+					ZWInstancesList list = zway_instances_list(zway, dev);
+					if (list != NULL ) {
+						int i = 0;
+						printf("Instances list for device %i: ", dev);
+						while (list[i]) {
+							printf("%i ", list[i]);
+							i++;
+						}
+						zway_instances_list_free(list);
+						printf("\n");
+					} else
+						printf("Error happened requesting instances list\n");
+				}
+					break;
+
+				case 3: {
+					ZWCommandClassesList list = zway_command_classes_list(zway,
+							dev, inst);
+					if (list != NULL ) {
+						int i = 0;
+						printf(
+								"Command Classes list for device %i instance %i: ",
+								dev, inst);
+						while (list[i]) {
+							printf("%02x ", list[i]);
+							i++;
+						}
+						zway_command_classes_list_free(list);
+						printf("\n");
+					} else
+						printf(
+								"Error happened requesting command classes list\n");
+				}
+					break;
+				}
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+void print_zway_terminated(ZWay zway, void* arg) {
+	zway_log(zway, Information, ZSTR("Z-Way terminated"));
+}
+
+int main(int argc, const char * argv[]) {
+	ZWLog logger = zlog_create(stdout, Debug);
+
+	ZWay zway = NULL;
+#ifdef _WINDOWS
+	ZWError r = zway_init(&zway, ZSTR("COM3"), NULL, NULL, NULL, NULL, logger);
+#endif
+#ifdef __MACH__
+	ZWError r = zway_init(&zway, ZSTR("/dev/cu.SLAB_USBtoUART"), NULL, NULL, NULL, NULL, logger);
+#endif
+#ifdef __linux__
+	ZWError r = zway_init(&zway, ZSTR("/dev/ttyAMA0"), NULL, NULL, NULL, NULL,
+			logger);
+#endif
+	if (r != NoError) {
+		zway_log_error(zway, Critical, "Failed to init ZWay", r);
+		return -1;
+	}
+
+	zway_device_add_callback(zway,
+			DeviceAdded | DeviceRemoved | InstanceAdded | InstanceRemoved
+					| CommandAdded | CommandRemoved, print_D_I_CC_event, NULL );
+
+	r = zway_start(zway, print_zway_terminated, NULL );
+	if (r != NoError) {
+		zway_log_error(zway, Critical, "Failed to start ZWay", r);
+		return -1;
+	}
+
+	r = zway_discover(zway);
+	if (r != NoError) {
+		zway_log_error(zway, Critical, "Failed to negotiate with Z-Wave stick",
+				r);
+		return -1;
+	}
+
+	pin_init();
+	/*  while(1){
+	 digitalWrite(27,1);
+	 delay(500);
+	 digitalWrite(27,0);
+	 delay(500);
+	 }*/
+	// Application code
+	int code = do_work2(zway);
+
+	r = zway_stop(zway);
+
+	zway_terminate(&zway);
+
+	return code;
+}

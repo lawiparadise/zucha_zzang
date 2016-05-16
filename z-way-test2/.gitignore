@@ -1,0 +1,16 @@
+*.o
+*.so
+*.a
+*.tgz
+libzway
+z-way-test_a
+z-way-test_so
+
+config/zddx/*
+
+malloc.log
+
+ZDDX/*.xml
+ZDDX/ZDDX.indx
+ZDDX/ZDDX.indxml
+ZDDX/last_changed.txt

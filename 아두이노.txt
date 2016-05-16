@@ -1,0 +1,282 @@
+#include <SoftwareSerial.h>
+#include<Servo.h>
+
+//from Rasp Handle
+
+int bit7 = 7;
+
+int cnt = 0;
+int cnt0 = 0;
+int cnt1 = 0;
+int cnt2 = 0;
+int cnt3 = 0;
+int cnt4 = 0;
+int cnt5 = 0;
+int cnt6 = 0;
+
+//
+int R = 0;
+int N = 1;
+int D = 2;
+int P = 3;
+int B = 4;
+int BX = 8;
+int A = 6;
+//int AX = 7;
+//int EN = 8;
+
+//servo
+int servo_PIN = 5;
+Servo servo;
+int angle = 100;
+int handle = 100;
+
+//motor
+int enable = 12;
+int direction_a = 10;
+int direction_b = 13;
+int speed_control = 11;
+int motor_speed = 0;
+
+//speed
+int maxspeed = 40;
+
+//cnt
+int startcnt = 0;
+
+boolean Redrive = false;
+boolean Neutrality = false;
+boolean Drive = false;
+boolean Parking = false;
+boolean Break = false;
+boolean Accel = false;
+boolean QLeft = false;
+boolean WRight = false;
+
+void setup() {
+  
+    //servo
+  servo.attach(servo_PIN);
+//  Serial.begin(9600);
+  //from Rasp Handle
+    pinMode(5,INPUT);
+  pinMode(A0,INPUT);
+  pinMode(A1,INPUT);
+  pinMode(A2,INPUT);
+  pinMode(A3,INPUT);
+  pinMode(A4,INPUT);
+  pinMode(A5,INPUT);
+  pinMode(bit7,INPUT);
+  
+  
+  // put your setup code here, to run once:
+  pinMode(R,INPUT);
+  pinMode(N,INPUT);
+  pinMode(D,INPUT);
+  pinMode(P,INPUT);
+  pinMode(B,INPUT);
+  pinMode(BX,INPUT);
+  pinMode(A,INPUT);
+  //pinMode(AX,INPUT);
+  //pinMode(ENA,INPUT);
+  pinMode(servo_PIN,OUTPUT);
+  
+    //motor
+  pinMode(enable,OUTPUT);
+  pinMode(direction_a,OUTPUT);
+  pinMode(direction_b,OUTPUT);
+  pinMode(speed_control,OUTPUT);
+  digitalWrite(enable,HIGH);
+  digitalWrite(direction_a,LOW);
+  digitalWrite(direction_b,LOW);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+    if(digitalRead(R)==HIGH){
+      Redrive = true;
+      Neutrality = false;
+      Drive = false;
+      Parking = false;
+    } else if(digitalRead(N)==HIGH){
+      Redrive = false;
+      Neutrality = true;
+      Drive = false;
+      Parking = false;
+    } else if(digitalRead(D)==HIGH){
+      Redrive = false;
+      Neutrality = false;
+      Drive = true;
+      Parking = false;
+    } else if(digitalRead(P)==HIGH){
+      Redrive = false;
+      Neutrality = false;
+      Drive = false;
+      Parking = true;
+    }
+ /*   
+    if(digitalRead(B)==HIGH){
+     Break = true; 
+    } else if(digitalRead(BX)==HIGH){
+      Break = false;
+    }
+   */
+     if(digitalRead(B)==HIGH){
+     Break = true; 
+    } else {
+      Break = false;
+    } 
+
+    
+    if(digitalRead(A)==HIGH){
+      Accel = true;
+      maxspeed = 60;
+    } else{
+      Accel = false;
+      maxspeed = 40;
+    }
+
+
+
+  
+
+      
+    if(Parking){
+       motor_speed = 0;
+      startcnt = 0;
+       digitalWrite(direction_a,LOW);
+       digitalWrite(direction_b,LOW);      
+//     digitalWrite(led2,HIGH); 
+    }
+  
+    if(Drive){
+    //  analogWrite(speed_control,0);
+      digitalWrite(direction_a,HIGH);
+      digitalWrite(direction_b,LOW);
+    }
+    if(Redrive){
+     // analogWrite(speed_control,0);
+       digitalWrite(direction_a,LOW);
+       digitalWrite(direction_b,HIGH);      
+    }
+    
+    
+   if(Break){
+//      digitalWrite(led,1); 
+      motor_speed = 0;
+      startcnt = 0;
+    } else{
+//      digitalWrite(led,0); 
+    }
+    
+    
+   if(Drive || Redrive){
+      if(!Break){
+  //      digitalWrite(led,1);
+        
+       if(startcnt == 0){
+        analogWrite(speed_control,100);
+        delay(10);
+        analogWrite(speed_control,100);
+        delay(10);
+        analogWrite(speed_control,100);
+        delay(10);
+        analogWrite(speed_control,100);
+        delay(10);
+  
+        startcnt = 1;
+       }
+    
+       motor_speed=motor_speed+10;
+        if(motor_speed > maxspeed)
+        {
+          if(cnt>=30 && cnt <=36){
+           motor_speed = maxspeed+13;
+          } else{
+            motor_speed = maxspeed;
+          }
+          
+        }
+      }
+    } else{
+      motor_speed = 0;
+      startcnt = 0;
+    }
+  
+  /*
+    if(digitalRead(switchs)==1){
+  //     angle=angle-5;
+  //     if(angle < 50)
+  //      {
+          angle = 50;
+   //     }
+       
+    } else if(digitalRead(switchs)==0){
+  //    angle=angle+5;
+ //      if(angle > 150)
+  //      {
+          angle = 150;
+  //      }
+
+    }
+    */
+ //   angle = handle;
+ 
+        if(digitalRead(A0)==1){
+    cnt0=64;
+  } else{
+    cnt0=0;
+  }
+    if(digitalRead(A1)==1){
+    cnt1=32;
+  }else{
+    cnt1=0;
+  }
+    if(digitalRead(A2)==1){
+    cnt2=16;
+  } else{
+    cnt2=0;
+  }
+    if(digitalRead(A3)==1){
+    cnt3=8;
+  } else{
+    cnt3=0;
+  }
+    if(digitalRead(A4)==1){
+    cnt4=4;
+  } else{
+    cnt4=0;
+  }
+    if(digitalRead(A5)==1){
+    cnt5=2;
+  } else{
+    cnt5=0;
+  }
+    if(digitalRead(bit7)==1){
+    cnt6=1;
+  } else{
+    cnt6=0;
+  }
+  cnt = cnt0+cnt1+cnt2+cnt3+cnt4+cnt5+(cnt6)+30;
+  
+  /*
+  if(cnt != angle){
+    Serial.println(cnt);
+    Serial.println(cnt0);
+    Serial.println(cnt1);
+    Serial.println(cnt2);
+    Serial.println(cnt3);
+    Serial.println(cnt4);
+    Serial.println(cnt5);
+    Serial.println(cnt6);
+    Serial.println("");
+  }
+  */
+   angle = cnt;
+
+    analogWrite(speed_control,motor_speed);
+    servo.write(angle);
+  //  delay(10);
+    
+}

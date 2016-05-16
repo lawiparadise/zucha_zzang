@@ -1,0 +1,260 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2430643114B76CA50092BEF4 /* z_way_test.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2430643014B76CA50092BEF4 /* z_way_test.1 */; };
+		246D1E011A11503B0030A47A /* libzcommons.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 246D1E001A11503B0030A47A /* libzcommons.a */; };
+		246D1E031A1151780030A47A /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 246D1E021A1151780030A47A /* libiconv.dylib */; };
+		247437BB159B9969001E71B5 /* libzway.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 247437BA159B9969001E71B5 /* libzway.a */; };
+		24933D9815924B3B0077F3BA /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24933D9715924B3B0077F3BA /* main.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2430642814B76CA50092BEF4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				2430643114B76CA50092BEF4 /* z_way_test.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2430642A14B76CA50092BEF4 /* z-way-test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "z-way-test"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2430643014B76CA50092BEF4 /* z_way_test.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = z_way_test.1; sourceTree = "<group>"; };
+		246D1E001A11503B0030A47A /* libzcommons.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzcommons.a; path = "../../../../Library/Developer/Xcode/DerivedData/Z-Way-eztnjwyjyurieoekgofqlykncztl/Build/Products/Debug/libzcommons.a"; sourceTree = "<group>"; };
+		246D1E021A1151780030A47A /* libiconv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.dylib; path = usr/lib/libiconv.dylib; sourceTree = SDKROOT; };
+		247437BA159B9969001E71B5 /* libzway.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzway.a; path = "../../../../Library/Developer/Xcode/DerivedData/Z-Way-etlvedbkwktiyjhbxiuedrliimwa/Build/Products/Debug/libzway.a"; sourceTree = "<group>"; };
+		24933D9715924B3B0077F3BA /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2430642714B76CA50092BEF4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				246D1E031A1151780030A47A /* libiconv.dylib in Frameworks */,
+				246D1E011A11503B0030A47A /* libzcommons.a in Frameworks */,
+				247437BB159B9969001E71B5 /* libzway.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2430641F14B76CA50092BEF4 = {
+			isa = PBXGroup;
+			children = (
+				246D1E021A1151780030A47A /* libiconv.dylib */,
+				246D1E001A11503B0030A47A /* libzcommons.a */,
+				247437BA159B9969001E71B5 /* libzway.a */,
+				2430642D14B76CA50092BEF4 /* z-wave-test */,
+				2430642B14B76CA50092BEF4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2430642B14B76CA50092BEF4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2430642A14B76CA50092BEF4 /* z-way-test */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2430642D14B76CA50092BEF4 /* z-wave-test */ = {
+			isa = PBXGroup;
+			children = (
+				24933D9715924B3B0077F3BA /* main.c */,
+				2430643014B76CA50092BEF4 /* z_way_test.1 */,
+			);
+			path = "z-wave-test";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2430642914B76CA50092BEF4 /* z-way-test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2430643414B76CA50092BEF4 /* Build configuration list for PBXNativeTarget "z-way-test" */;
+			buildPhases = (
+				2430642614B76CA50092BEF4 /* Sources */,
+				2430642714B76CA50092BEF4 /* Frameworks */,
+				2430642814B76CA50092BEF4 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "z-way-test";
+			productName = "z-wave-test";
+			productReference = 2430642A14B76CA50092BEF4 /* z-way-test */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2430642114B76CA50092BEF4 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0610;
+				ORGANIZATIONNAME = "pieceofsummer@gmail.com";
+			};
+			buildConfigurationList = 2430642414B76CA50092BEF4 /* Build configuration list for PBXProject "z-way-test" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 2430641F14B76CA50092BEF4;
+			productRefGroup = 2430642B14B76CA50092BEF4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2430642914B76CA50092BEF4 /* z-way-test */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2430642614B76CA50092BEF4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24933D9815924B3B0077F3BA /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2430643214B76CA50092BEF4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "-lxml2";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		2430643314B76CA50092BEF4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_LDFLAGS = "-lxml2";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		2430643514B76CA50092BEF4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
+				GCC_VERSION = "";
+				HEADER_SEARCH_PATHS = (
+					"../z-commons",
+					"../z-way/**",
+					/opt/local/include/libxml2,
+					/opt/local/include,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					/opt/local/lib,
+					"$(inherited)",
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-larchive",
+					"-lcrypto",
+					"-lxml2",
+				);
+				PRODUCT_NAME = "z-way-test";
+			};
+			name = Debug;
+		};
+		2430643614B76CA50092BEF4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_VERSION = "";
+				HEADER_SEARCH_PATHS = (
+					"../z-commons",
+					"../z-way/**",
+					/opt/local/include/libxml2,
+					/opt/local/include,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					/opt/local/lib,
+					"$(inherited)",
+				);
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-larchive",
+					"-lcrypto",
+					"-lxml2",
+				);
+				PRODUCT_NAME = "z-way-test";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2430642414B76CA50092BEF4 /* Build configuration list for PBXProject "z-way-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2430643214B76CA50092BEF4 /* Debug */,
+				2430643314B76CA50092BEF4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2430643414B76CA50092BEF4 /* Build configuration list for PBXNativeTarget "z-way-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2430643514B76CA50092BEF4 /* Debug */,
+				2430643614B76CA50092BEF4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2430642114B76CA50092BEF4 /* Project object */;
+}
